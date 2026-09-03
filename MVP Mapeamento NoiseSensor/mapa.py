@@ -63,7 +63,7 @@ def gerar_mapa():
 
         path.leaflet-interactive:focus, .leaflet-interactive:focus, svg:focus {{ outline: none !important; }}
 
-        /* 1. CABEÇALHO COM GRID DE 3 COLUNAS (Busca Rigorosamente Centralizada) */
+        /* 1. CABEÇALHO COM BUSCA CENTRALIZADA */
         #top-header-card {{
             order: 1 !important;
             background: #ffffff;
@@ -146,12 +146,12 @@ def gerar_mapa():
         }}
         .dropdown-item:hover {{ background: #f0f9ff; color: #0284c7; font-weight: 600; }}
 
-        /* 2. MAPA ISOLADO E ARREDONDADO */
+        /* 2. MAPA ISOLADO */
         .folium-map {{
             order: 2 !important;
             position: relative !important;
             width: 100% !important;
-            height: 72vh !important;
+            height: 68vh !important;
             border-radius: 16px !important;
             overflow: hidden !important;
             border: 1px solid #cbd5e1 !important;
@@ -159,15 +159,15 @@ def gerar_mapa():
             background: #ffffff !important;
         }}
 
-        /* 3. BASE: 2 QUADRADOS LADO A LADO */
-        #bottom-analytics-grid {{
-            order: 3 !important;
+        /* 3. GRIDS DE ANÁLISE */
+        .analytics-grid {{
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 16px;
             width: 100%;
-            margin-top: 4px;
         }}
+        #bottom-analytics-grid {{ order: 3 !important; }}
+        #bottom-history-grid {{ order: 4 !important; }}
 
         .dashboard-box {{
             background: #ffffff;
@@ -175,7 +175,7 @@ def gerar_mapa():
             border: 1px solid #e2e8f0;
             padding: 16px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.04);
-            min-height: 280px;
+            min-height: 270px;
             display: flex;
             flex-direction: column;
         }}
@@ -191,21 +191,20 @@ def gerar_mapa():
             align-items: center;
             border-bottom: 1px solid #f1f5f9;
             padding-bottom: 10px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }}
 
-        /* Lista de Sensores da Região (Esquerda) */
-        #lista-sensores-grid {{
+        .scroll-container {{
             flex: 1;
-            max-height: 240px;
+            max-height: 220px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 4px;
             padding-right: 4px;
         }}
-        #lista-sensores-grid::-webkit-scrollbar {{ width: 5px; }}
-        #lista-sensores-grid::-webkit-scrollbar-thumb {{ background: #cbd5e1; border-radius: 4px; }}
+        .scroll-container::-webkit-scrollbar {{ width: 5px; }}
+        .scroll-container::-webkit-scrollbar-thumb {{ background: #cbd5e1; border-radius: 4px; }}
 
         .item-sensor {{
             display: flex;
@@ -222,10 +221,8 @@ def gerar_mapa():
             border-bottom: 1px solid #f1f5f9;
             transition: all 0.15s;
         }}
-        .item-sensor:hover {{
-            background: #e2e8f0;
-            transform: translateX(3px);
-        }}
+        .item-sensor:hover {{ background: #e2e8f0; transform: translateX(3px); }}
+
         .badge-dba {{
             font-weight: bold;
             padding: 2px 7px;
@@ -235,23 +232,49 @@ def gerar_mapa():
             font-size: 11px;
         }}
 
-        /* Informações do Sensor Selecionado (Direita) */
-        #painel-sensor-selecionado {{
-            flex: 1;
+        /* Linhas do Histórico */
+        .item-hist-row {{
             display: flex;
-            flex-direction: column;
-            justify-content: center;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px;
+            background: #f8fafc;
+            border-radius: 6px;
+            font-size: 12px;
+            border: 1px solid #f1f5f9;
         }}
+
+        .kpi-mini-bar {{
+            display: flex;
+            gap: 6px;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            background: #f8fafc;
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            font-size: 11px;
+        }}
+        .kpi-mini-bar b {{ color: #0284c7; font-weight: 700; }}
+
         .metric-row {{
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
+            padding: 7px 0;
             border-bottom: 1px dashed #e2e8f0;
             font-size: 13px;
         }}
         .metric-row:last-child {{ border-bottom: none; }}
         .metric-label {{ color: #64748b; }}
         .metric-value {{ font-weight: 600; color: #0f172a; }}
+
+        .placeholder-text {{
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+            margin-top: auto;
+            margin-bottom: auto;
+        }}
 
         .live-dot {{
             display: inline-block; width: 8px; height: 8px; background: #2ecc71;
@@ -260,7 +283,7 @@ def gerar_mapa():
         @keyframes blink {{ 0%, 100% {{ opacity: 1; }} 50% {{ opacity: 0.3; }} }}
     </style>
 
-    <!-- 1. Header do Topo com a busca centralizada -->
+    <!-- 1. Header do Topo -->
     <div id="top-header-card">
         <div class="header-left">
             <span class="live-dot"></span>
@@ -278,14 +301,14 @@ def gerar_mapa():
         </div>
     </div>
 
-    <!-- 2. Grid Analítico Inferior -->
-    <div id="bottom-analytics-grid">
+    <!-- 2. Grid de Tempo Real -->
+    <div id="bottom-analytics-grid" class="analytics-grid">
         <div class="dashboard-box">
             <div class="box-title">
                 <span>📍 Sensores na Região</span>
                 <span id="contador-regiao" style="font-size: 11px; color: #64748b; font-weight: normal;">60 nós</span>
             </div>
-            <div id="lista-sensores-grid"></div>
+            <div id="lista-sensores-grid" class="scroll-container"></div>
         </div>
 
         <div class="dashboard-box">
@@ -294,9 +317,40 @@ def gerar_mapa():
                 <span id="status-tag" style="font-size: 11px; color: #64748b;">Nenhum sensor em foco</span>
             </div>
             <div id="painel-sensor-selecionado">
-                <div style="text-align: center; color: #94a3b8; font-size: 13px;">
-                    Clique ou passe o mouse sobre um sensor no mapa ou na lista ao lado para inspecionar métricas acústicas e elétricas.
+                <div class="placeholder-text">
+                    Clique ou passe o mouse sobre um sensor no mapa ou na lista ao lado para inspecionar parâmetros elétricos e sonoros.
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Grid de Histórico (Minuto Atual + Últimos 60 Minutos) -->
+    <div id="bottom-history-grid" class="analytics-grid">
+        <!-- Caixa Esquerda: Minuto Atual segundo a segundo -->
+        <div class="dashboard-box">
+            <div class="box-title">
+                <span>⏱️ Coletas do Minuto Atual (<span id="hist-min-sensor">--</span>)</span>
+                <span id="hist-min-count" style="font-size: 11px; color: #64748b;">0 coletas</span>
+            </div>
+            <div id="kpi-minuto-bar" class="kpi-mini-bar" style="display: none;">
+                <span>Leq: <b id="kpi-leq">--</b></span>
+                <span>Média: <b id="kpi-med">--</b></span>
+                <span>Mín: <b id="kpi-min">--</b></span>
+                <span>Máx: <b id="kpi-max">--</b></span>
+            </div>
+            <div id="lista-coletas-minuto" class="scroll-container">
+                <div class="placeholder-text">Selecione um sensor acima para ver o segundo a segundo em curso.</div>
+            </div>
+        </div>
+
+        <!-- Caixa Direita: Médias dos Últimos 60 Minutos -->
+        <div class="dashboard-box">
+            <div class="box-title">
+                <span>📊 Médias dos Últimos 60 Minutos (<span id="hist-60m-sensor">--</span>)</span>
+                <span id="hist-60m-count" style="font-size: 11px; color: #64748b;">0 registros</span>
+            </div>
+            <div id="lista-historico-60m" class="scroll-container">
+                <div class="placeholder-text">Selecione um sensor acima para carregar o histórico de 60 minutos.</div>
             </div>
         </div>
     </div>
@@ -318,6 +372,20 @@ def gerar_mapa():
             const painelSensorEl = document.getElementById('painel-sensor-selecionado');
             const statusTagEl = document.getElementById('status-tag');
 
+            // Novos elementos de Histórico
+            const histMinSensorEl = document.getElementById('hist-min-sensor');
+            const histMinCountEl = document.getElementById('hist-min-count');
+            const kpiMinutoBar = document.getElementById('kpi-minuto-bar');
+            const kpiLeqEl = document.getElementById('kpi-leq');
+            const kpiMedEl = document.getElementById('kpi-med');
+            const kpiMinEl = document.getElementById('kpi-min');
+            const kpiMaxEl = document.getElementById('kpi-max');
+            const listaColetasMinuto = document.getElementById('lista-coletas-minuto');
+
+            const hist60mSensorEl = document.getElementById('hist-60m-sensor');
+            const hist60mCountEl = document.getElementById('hist-60m-count');
+            const listaHistorico60m = document.getElementById('lista-historico-60m');
+
             const layersMap = {{}};
             const nomesBairros = [];
             let highlightedPolygon = null;
@@ -332,6 +400,7 @@ def gerar_mapa():
 
             const sensorMarkers = {{}};
             let telemetriaCache = [];
+            let historicoCache = [];
 
             const defaultPolyStyle = {{ fillColor: "#3388ff", color: "#002244", weight: 1.2, fillOpacity: 0.15 }};
             const selectedPolyStyle = {{ fillColor: "#e74c3c", color: "#962d22", weight: 3, fillOpacity: 0.45 }};
@@ -428,11 +497,11 @@ def gerar_mapa():
                         <span class="metric-value">${{s.bairro}} (${{s.distrito}})</span>
                     </div>
                     <div class="metric-row">
-                        <span class="metric-label">Nível de Pressão Sonora:</span>
+                        <span class="metric-label">Pressão Sonora Instantânea:</span>
                         <span class="metric-value" style="color: ${{cor}}; font-size: 15px;">${{s.decibeis_dba}} dBA</span>
                     </div>
                     <div class="metric-row">
-                        <span class="metric-label">Potência Ativa Instantânea:</span>
+                        <span class="metric-label">Potência Ativa:</span>
                         <span class="metric-value">${{s.eletrica.potencia_w}} W</span>
                     </div>
                     <div class="metric-row">
@@ -440,14 +509,101 @@ def gerar_mapa():
                         <span class="metric-value">${{s.eletrica.tensao_v}} V</span>
                     </div>
                     <div class="metric-row">
-                        <span class="metric-label">Consumo Elétrico Acumulado:</span>
+                        <span class="metric-label">Consumo Acumulado:</span>
                         <span class="metric-value">${{s.eletrica.consumo_acumulado_kwh.toFixed(4)}} kWh</span>
                     </div>
-                    <div class="metric-row">
-                        <span class="metric-label">Última Leitura:</span>
-                        <span class="metric-value" style="font-size: 11px; color: #64748b;">${{s.timestamp}}</span>
-                    </div>
                 `;
+            }}
+
+            // RENDERIZAÇÃO DO HISTÓRICO DO MINUTO ATUAL (SEGUNDO A SEGUNDO)
+            function renderizarMinutoAtual(s) {{
+                if (!s) return;
+                histMinSensorEl.innerText = s.sensor_id;
+                const amostras = s.coletas_minuto || [];
+                histMinCountEl.innerText = amostras.length + " coletas";
+
+                if (amostras.length === 0) {{
+                    listaColetasMinuto.innerHTML = '<div class="placeholder-text">Aguardando próximas coletas do minuto...</div>';
+                    kpiMinutoBar.style.display = 'none';
+                    return;
+                }}
+
+                kpiMinutoBar.style.display = 'flex';
+                const valores = amostras.map(a => a.dba);
+
+                // Média aritmética
+                const soma = valores.reduce((acc, v) => acc + v, 0);
+                const mediaAritmetica = (soma / valores.length).toFixed(1);
+
+                // Leq (Média energética)
+                const somaEnergia = valores.reduce((acc, v) => acc + Math.pow(10, v / 10.0), 0);
+                const leq = (10.0 * Math.log10(somaEnergia / valores.length)).toFixed(1);
+
+                const minVal = Math.min(...valores).toFixed(1);
+                const maxVal = Math.max(...valores).toFixed(1);
+
+                kpiLeqEl.innerText = leq + " dBA";
+                kpiMedEl.innerText = mediaAritmetica + " dBA";
+                kpiMinEl.innerText = minVal + " dBA";
+                kpiMaxEl.innerText = maxVal + " dBA";
+
+                listaColetasMinuto.innerHTML = "";
+                // Mostra as coletas em ordem reversa (mais recente no topo)
+                amostras.slice().reverse().forEach(a => {{
+                    const cor = a.dba >= 70 ? '#e74c3c' : (a.dba >= 55 ? '#f1c40f' : '#2ecc71');
+                    const row = document.createElement('div');
+                    row.className = 'item-hist-row';
+                    row.innerHTML = `
+                        <span>🕒 <b>${{a.hora}}</b></span>
+                        <span style="color: #64748b; font-size:11px;">${{a.status}}</span>
+                        <span class="badge-dba" style="background:${{cor}};">${{a.dba}} dB</span>
+                    `;
+                    listaColetasMinuto.appendChild(row);
+                }});
+            }}
+
+            // RENDERIZAÇÃO DAS MÉDIAS DOS ÚLTIMOS 60 MINUTOS
+            function renderizarHistorico60m(sensorId) {{
+                if (!sensorId) return;
+                hist60mSensorEl.innerText = sensorId;
+
+                const registrosSensor = historicoCache
+                    .filter(h => h.sensor_id === sensorId)
+                    .slice(-60)
+                    .reverse();
+
+                hist60mCountEl.innerText = registrosSensor.length + " min";
+
+                if (registrosSensor.length === 0) {{
+                    listaHistorico60m.innerHTML = '<div class="placeholder-text">Nenhum dado consolidado para este sensor ainda.</div>';
+                    return;
+                }}
+
+                listaHistorico60m.innerHTML = "";
+                registrosSensor.forEach(r => {{
+                    const cor = r.leq_dba >= 70 ? '#e74c3c' : (r.leq_dba >= 55 ? '#f1c40f' : '#2ecc71');
+                    const horaMin = r.fechamento.split(" ")[1].substring(0, 5);
+                    const row = document.createElement('div');
+                    row.className = 'item-hist-row';
+                    row.innerHTML = `
+                        <div>
+                            <b>${{horaMin}}</b>
+                            <span style="color:#64748b; font-size:11px; margin-left: 8px;">Mín: ${{r.min_dba}} | Máx: ${{r.max_dba}} dB</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:11px; color:#475569;">${{r.consumo_acumulado_kwh.toFixed(3)}} kWh</span>
+                            <span class="badge-dba" style="background:${{cor}};">Leq ${{r.leq_dba}} dB</span>
+                        </div>
+                    `;
+                    listaHistorico60m.appendChild(row);
+                }});
+            }}
+
+            function selecionarSensor(s) {{
+                sensorSelecionadoId = s.sensor_id;
+                atualizarPainelDireito(s);
+                renderizarMinutoAtual(s);
+                renderizarHistorico60m(s.sensor_id);
             }}
 
             function renderizarListaSensores() {{
@@ -485,8 +641,7 @@ def gerar_mapa():
                     }});
 
                     item.addEventListener('click', () => {{
-                        sensorSelecionadoId = s.sensor_id;
-                        atualizarPainelDireito(s);
+                        selecionarSensor(s);
                         if (sensorMarkers[s.sensor_id]) {{
                             map.setView([s.latitude, s.longitude], 15);
                             sensorMarkers[s.sensor_id].openPopup();
@@ -510,6 +665,21 @@ def gerar_mapa():
                 `;
             }}
 
+            // Atualiza histórico de 60 minutos periodicamente
+            async function carregarHistoricoGeral() {{
+                try {{
+                    const resp = await fetch('historico_sensores.json?t=' + Date.now());
+                    historicoCache = await resp.json();
+                    if (sensorSelecionadoId) {{
+                        renderizarHistorico60m(sensorSelecionadoId);
+                    }}
+                }} catch (e) {{}}
+            }}
+
+            setInterval(carregarHistoricoGeral, 5000);
+            carregarHistoricoGeral();
+
+            // Polling de Telemetria a cada 1 segundo
             async function atualizarTelemetria() {{
                 try {{
                     const response = await fetch('dados_sensores.json?t=' + Date.now());
@@ -536,8 +706,7 @@ def gerar_mapa():
                             marker.bindPopup(gerarHtmlPopup(s, cor));
 
                             marker.on('click', () => {{
-                                sensorSelecionadoId = s.sensor_id;
-                                atualizarPainelDireito(s);
+                                selecionarSensor(s);
                             }});
 
                             markersGroup.addLayer(marker);
@@ -551,8 +720,10 @@ def gerar_mapa():
                             if (badge) {{ badge.innerText = s.decibeis_dba + ' dB'; badge.style.background = cor; }}
                         }}
 
+                        // Atualiza as métricas ao vivo do sensor selecionado
                         if (sensorSelecionadoId === s.sensor_id) {{
                             atualizarPainelDireito(s);
+                            renderizarMinutoAtual(s);
                         }}
 
                         horaEl.innerText = s.timestamp;

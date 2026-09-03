@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import math
 import os
@@ -84,12 +84,58 @@ def inicializar_sensores_fixos():
   return sensores
 
 
-def calcular_leq(valores_decibeis):
+def calcular_leq(amostras):
   """Calcula a média energética oficial (Leq) de uma lista de decibéis."""
-  if not valores_decibeis:
+  if not amostras:
     return 0.0
-  soma_energia = sum(10 ** (v / 10.0) for v in valores_decibeis)
-  return round(10.0 * math.log10(soma_energia / len(valores_decibeis)), 1)
+  valores = (
+      [a["dba"] for a in amostras] if isinstance(amostras[0], dict) else amostras
+  )
+  soma_energia = sum(10 ** (v / 10.0) for v in valores)
+  return round(10.0 * math.log10(soma_energia / len(valores)), 1)
+
+
+def gerar_historico_inicial(sensores, qtd_minutos=60):
+  """Cria 60 minutos de histórico retroativo para testes imediatos no dashboard."""
+  historico = []
+  agora = datetime.now()
+  for i in range(qtd_minutos, 0, -1):
+    dt_ponto = agora - timedelta(minutes=i)
+    ts_str = dt_ponto.strftime("%Y-%m-%d %H:%M:00")
+    hora = dt_ponto.hour
+
+    for s in sensores:
+      if s["distrito"] == "Paranapiacaba":
+        base = (
+            random.uniform(36, 45)
+            if (hora < 6 or hora > 21)
+            else random.uniform(43, 51)
+        )
+      else:
+        base = (
+            random.uniform(55, 66)
+            if (7 <= hora <= 19)
+            else random.uniform(43, 50)
+        )
+
+      valores = [round(base + random.gauss(0, 2.2), 1) for _ in range(60)]
+      if random.random() < 0.06:
+        valores[random.randint(0, 59)] += random.uniform(15, 25)
+
+      historico.append({
+          "sensor_id": s["id"],
+          "bairro": s["bairro"],
+          "distrito": s["distrito"],
+          "fechamento": ts_str,
+          "amostras_coletadas": 60,
+          "leq_dba": calcular_leq(valores),
+          "max_dba": max(valores),
+          "min_dba": min(valores),
+          "consumo_acumulado_kwh": round(
+              s["consumo_acumulado_kwh"] - (i * 0.001), 4
+          ),
+      })
+  return historico
 
 
 def calcular_proximo_fechamento(delta_segundos):
@@ -101,10 +147,9 @@ def loop_simulacao(sensores):
   delta_hist_s = INTERVALO_HISTORICO_MINUTOS * 60
   proximo_fechamento_ts = calcular_proximo_fechamento(delta_hist_s)
 
-  # Buffer em memória para acumular as coletas de cada segundo
   buffer_amostras = {s["id"]: [] for s in sensores}
 
-  # Carrega histórico existente para não sobrescrever em restarts
+  # Carrega histórico ou gera a semente dos últimos 60 minutos
   historico_geral = []
   if os.path.exists(ARQUIVO_HISTORICO):
     try:
@@ -112,6 +157,15 @@ def loop_simulacao(sensores):
         historico_geral = json.load(f)
     except Exception:
       historico_geral = []
+
+  if not historico_geral:
+    print(
+        "⚡ Inicializando base histórica sintética dos últimos 60 minutos para"
+        " os 60 sensores..."
+    )
+    historico_geral = gerar_historico_inicial(sensores, qtd_minutos=60)
+    with open(ARQUIVO_HISTORICO, "w", encoding="utf-8") as f:
+      json.dump(historico_geral, f, ensure_ascii=False, indent=2)
 
   while True:
     ts_atual = time.time()
@@ -149,8 +203,13 @@ def loop_simulacao(sensores):
           5,
       )
 
-      # Guarda na memória para o agregador
-      buffer_amostras[s["id"]].append(decibeis)
+      # Registra coleta segundo a segundo no buffer do minuto atual
+      registro_segundo = {
+          "hora": agora.strftime("%H:%M:%S"),
+          "dba": decibeis,
+          "status": status,
+      }
+      buffer_amostras[s["id"]].append(registro_segundo)
 
       payload_vivo.append({
           "sensor_id": s["id"],
@@ -166,13 +225,14 @@ def loop_simulacao(sensores):
               "potencia_w": potencia,
               "consumo_acumulado_kwh": s["consumo_acumulado_kwh"],
           },
+          "coletas_minuto": buffer_amostras[s["id"]],
       })
 
-    # 1. Salva a telemetria instantânea de 1s (Dashboard)
+    # Grava estado instantâneo (com coletas do minuto em curso)
     with open(ARQUIVO_JSON, "w", encoding="utf-8") as f:
       json.dump(payload_vivo, f, ensure_ascii=False)
 
-    # 2. Verifica se a janela de histórico atingiu o minuto cravado
+    # Fechamento de janela
     if ts_atual >= proximo_fechamento_ts:
       fechamento_dt = datetime.fromtimestamp(proximo_fechamento_ts)
       timestamp_str = fechamento_dt.strftime("%Y-%m-%d %H:%M:00")
@@ -180,6 +240,7 @@ def loop_simulacao(sensores):
       for s in sensores:
         amostras = buffer_amostras[s["id"]]
         if amostras:
+          valores = [a["dba"] for a in amostras]
           historico_geral.append({
               "sensor_id": s["id"],
               "bairro": s["bairro"],
@@ -187,22 +248,17 @@ def loop_simulacao(sensores):
               "fechamento": timestamp_str,
               "amostras_coletadas": len(amostras),
               "leq_dba": calcular_leq(amostras),
-              "max_dba": max(amostras),
-              "min_dba": min(amostras),
+              "max_dba": max(valores),
+              "min_dba": min(valores),
               "consumo_acumulado_kwh": s["consumo_acumulado_kwh"],
           })
           buffer_amostras[s["id"]] = []
 
-      # Mantém os últimos 2.000 registros para o arquivo não crescer indefinidamente
-      historico_geral = historico_geral[-2000:]
-
+      historico_geral = historico_geral[-4000:]
       with open(ARQUIVO_HISTORICO, "w", encoding="utf-8") as f:
         json.dump(historico_geral, f, ensure_ascii=False, indent=2)
 
-      print(
-          f"📦 [Histórico Consolidado] Janela fechada com sucesso em:"
-          f" {timestamp_str}"
-      )
+      print(f"📦 [Histórico 1m] Janela gravada: {timestamp_str}")
       proximo_fechamento_ts = calcular_proximo_fechamento(delta_hist_s)
 
     time.sleep(INTERVALO_COLETA)
