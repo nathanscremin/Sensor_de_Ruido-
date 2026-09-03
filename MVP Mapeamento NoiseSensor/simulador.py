@@ -1,13 +1,20 @@
 from datetime import datetime
 import json
+import math
 import os
 import random
 import time
-from config import ARQUIVO_JSON, CAMINHO_GEOJSON, COTAS_DISTRITAIS, INTERVALO_COLETA
+from config import (
+    ARQUIVO_HISTORICO,
+    ARQUIVO_JSON,
+    CAMINHO_GEOJSON,
+    COTAS_DISTRITAIS,
+    INTERVALO_COLETA,
+    INTERVALO_HISTORICO_MINUTOS,
+)
 
 
 def ponto_dentro_poligono(x, y, poligono):
-  """Ray-Casting para validar se a coordenada sorteada está dentro do bairro."""
   n = len(poligono)
   dentro = False
   p1x, p1y = poligono[0]
@@ -23,7 +30,6 @@ def ponto_dentro_poligono(x, y, poligono):
 
 
 def inicializar_sensores_fixos():
-  """Gera coordenadas fixas respeitando as cotas distritais."""
   with open(CAMINHO_GEOJSON, "r", encoding="utf-8") as f:
     geo_data = json.load(f)
 
@@ -78,12 +84,40 @@ def inicializar_sensores_fixos():
   return sensores
 
 
+def calcular_leq(valores_decibeis):
+  """Calcula a média energética oficial (Leq) de uma lista de decibéis."""
+  if not valores_decibeis:
+    return 0.0
+  soma_energia = sum(10 ** (v / 10.0) for v in valores_decibeis)
+  return round(10.0 * math.log10(soma_energia / len(valores_decibeis)), 1)
+
+
+def calcular_proximo_fechamento(delta_segundos):
+  agora_ts = time.time()
+  return (math.floor(agora_ts / delta_segundos) + 1) * delta_segundos
+
+
 def loop_simulacao(sensores):
-  """Loop executado em thread paralela para emitir leituras a cada segundo."""
+  delta_hist_s = INTERVALO_HISTORICO_MINUTOS * 60
+  proximo_fechamento_ts = calcular_proximo_fechamento(delta_hist_s)
+
+  # Buffer em memória para acumular as coletas de cada segundo
+  buffer_amostras = {s["id"]: [] for s in sensores}
+
+  # Carrega histórico existente para não sobrescrever em restarts
+  historico_geral = []
+  if os.path.exists(ARQUIVO_HISTORICO):
+    try:
+      with open(ARQUIVO_HISTORICO, "r", encoding="utf-8") as f:
+        historico_geral = json.load(f)
+    except Exception:
+      historico_geral = []
+
   while True:
-    agora = datetime.now()
+    ts_atual = time.time()
+    agora = datetime.fromtimestamp(ts_atual)
     hora = agora.hour
-    payload = []
+    payload_vivo = []
 
     for s in sensores:
       if s["distrito"] == "Paranapiacaba":
@@ -115,7 +149,10 @@ def loop_simulacao(sensores):
           5,
       )
 
-      payload.append({
+      # Guarda na memória para o agregador
+      buffer_amostras[s["id"]].append(decibeis)
+
+      payload_vivo.append({
           "sensor_id": s["id"],
           "timestamp": agora.strftime("%H:%M:%S"),
           "bairro": s["bairro"],
@@ -131,7 +168,41 @@ def loop_simulacao(sensores):
           },
       })
 
+    # 1. Salva a telemetria instantânea de 1s (Dashboard)
     with open(ARQUIVO_JSON, "w", encoding="utf-8") as f:
-      json.dump(payload, f, ensure_ascii=False)
+      json.dump(payload_vivo, f, ensure_ascii=False)
+
+    # 2. Verifica se a janela de histórico atingiu o minuto cravado
+    if ts_atual >= proximo_fechamento_ts:
+      fechamento_dt = datetime.fromtimestamp(proximo_fechamento_ts)
+      timestamp_str = fechamento_dt.strftime("%Y-%m-%d %H:%M:00")
+
+      for s in sensores:
+        amostras = buffer_amostras[s["id"]]
+        if amostras:
+          historico_geral.append({
+              "sensor_id": s["id"],
+              "bairro": s["bairro"],
+              "distrito": s["distrito"],
+              "fechamento": timestamp_str,
+              "amostras_coletadas": len(amostras),
+              "leq_dba": calcular_leq(amostras),
+              "max_dba": max(amostras),
+              "min_dba": min(amostras),
+              "consumo_acumulado_kwh": s["consumo_acumulado_kwh"],
+          })
+          buffer_amostras[s["id"]] = []
+
+      # Mantém os últimos 2.000 registros para o arquivo não crescer indefinidamente
+      historico_geral = historico_geral[-2000:]
+
+      with open(ARQUIVO_HISTORICO, "w", encoding="utf-8") as f:
+        json.dump(historico_geral, f, ensure_ascii=False, indent=2)
+
+      print(
+          f"📦 [Histórico Consolidado] Janela fechada com sucesso em:"
+          f" {timestamp_str}"
+      )
+      proximo_fechamento_ts = calcular_proximo_fechamento(delta_hist_s)
 
     time.sleep(INTERVALO_COLETA)

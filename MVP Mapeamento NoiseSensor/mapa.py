@@ -7,7 +7,6 @@ def gerar_mapa():
   with open(CAMINHO_GEOJSON, "r", encoding="utf-8") as f:
     geo_data = json.load(f)
 
-  # 1. Instância do Mapa base
   m = folium.Map(
       location=[-23.72, -46.43],
       zoom_start=11,
@@ -21,7 +20,6 @@ def gerar_mapa():
       tiles="OpenStreetMap",
   )
 
-  # 2. Camada vetorial de bairros
   geo_layer = folium.GeoJson(
       geo_data,
       name="Bairros de Santo André",
@@ -45,15 +43,10 @@ def gerar_mapa():
   )
   geo_layer.add_to(m)
 
-  map_id = m.get_name()
-  layer_id = geo_layer.get_name()
-
-  # 3. Layout Estruturado (Header Superior -> Mapa Arredondado -> Grid Inferior)
   custom_ui = f"""
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
     <style>
-        /* Estrutura da Página Geral */
         html, body {{
             height: auto !important;
             min-height: 100vh !important;
@@ -70,49 +63,55 @@ def gerar_mapa():
 
         path.leaflet-interactive:focus, .leaflet-interactive:focus, svg:focus {{ outline: none !important; }}
 
-        /* 1. TOPO: Barra de Pesquisa e Status */
+        /* 1. CABEÇALHO COM GRID DE 3 COLUNAS (Busca Rigorosamente Centralizada) */
         #top-header-card {{
             order: 1 !important;
             background: #ffffff;
             border-radius: 12px;
-            padding: 12px 18px;
+            padding: 10px 20px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             border: 1px solid #e2e8f0;
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
             align-items: center;
-            gap: 20px;
-            flex-wrap: wrap;
+            gap: 16px;
         }}
 
-        .header-title-group {{
+        .header-left {{
             display: flex;
             align-items: center;
             gap: 8px;
+            justify-self: start;
         }}
 
         .search-container {{
             position: relative;
-            flex: 1;
-            max-width: 480px;
+            width: 440px;
             display: flex;
-            gap: 8px;
+            gap: 6px;
+            justify-self: center;
+        }}
+
+        .header-right {{
+            justify-self: end;
+            font-size: 12px;
+            color: #475569;
         }}
 
         #bairro-input {{
             flex: 1;
-            padding: 8px 12px;
+            padding: 7px 12px;
             font-size: 13px;
             border: 1px solid #cbd5e1;
             border-radius: 6px;
             outline: none;
             background: #f8fafc;
-            transition: border-color 0.2s;
+            transition: all 0.2s;
         }}
-        #bairro-input:focus {{ border-color: #0284c7; background: #fff; }}
+        #bairro-input:focus {{ border-color: #0284c7; background: #fff; box-shadow: 0 0 0 2px rgba(2,132,199,0.15); }}
 
         #btn-reset {{
-            padding: 8px 16px;
+            padding: 7px 14px;
             background: #e74c3c;
             color: white;
             border: none;
@@ -128,7 +127,7 @@ def gerar_mapa():
             position: absolute;
             top: calc(100% + 4px);
             left: 0;
-            right: 80px;
+            right: 76px;
             max-height: 160px;
             overflow-y: auto;
             background: #ffffff;
@@ -147,7 +146,7 @@ def gerar_mapa():
         }}
         .dropdown-item:hover {{ background: #f0f9ff; color: #0284c7; font-weight: 600; }}
 
-        /* 2. MEIO: Container Isolado do Mapa com Bordas Arredondadas */
+        /* 2. MAPA ISOLADO E ARREDONDADO */
         .folium-map {{
             order: 2 !important;
             position: relative !important;
@@ -160,7 +159,7 @@ def gerar_mapa():
             background: #ffffff !important;
         }}
 
-        /* 3. BASE: Grid de Análise (Dois quadrados lado a lado) */
+        /* 3. BASE: 2 QUADRADOS LADO A LADO */
         #bottom-analytics-grid {{
             order: 3 !important;
             display: grid;
@@ -195,7 +194,7 @@ def gerar_mapa():
             margin-bottom: 12px;
         }}
 
-        /* Lista de Sensores (Esquerda) */
+        /* Lista de Sensores da Região (Esquerda) */
         #lista-sensores-grid {{
             flex: 1;
             max-height: 240px;
@@ -236,7 +235,7 @@ def gerar_mapa():
             font-size: 11px;
         }}
 
-        /* Painel de Telemetria do Sensor Selecionado (Direita) */
+        /* Informações do Sensor Selecionado (Direita) */
         #painel-sensor-selecionado {{
             flex: 1;
             display: flex;
@@ -261,12 +260,11 @@ def gerar_mapa():
         @keyframes blink {{ 0%, 100% {{ opacity: 1; }} 50% {{ opacity: 0.3; }} }}
     </style>
 
-    <!-- 1. Header do Topo (Fora do Mapa) -->
+    <!-- 1. Header do Topo com a busca centralizada -->
     <div id="top-header-card">
-        <div class="header-title-group">
+        <div class="header-left">
             <span class="live-dot"></span>
             <b style="font-size: 14px; color: #0f172a;">NoiseSensor Santo André</b>
-            <span style="font-size: 12px; color: #64748b;">| Monitoramento em Tempo Real</span>
         </div>
 
         <div class="search-container">
@@ -275,26 +273,24 @@ def gerar_mapa():
             <div id="bairros-dropdown"></div>
         </div>
 
-        <div style="font-size: 12px; color: #475569;">
-            Atualizado: <b id="hora-atual">--:--:--</b>
+        <div class="header-right">
+            Atualização: <b id="hora-atual">--:--:--</b>
         </div>
     </div>
 
-    <!-- 2. Grid Inferior (Dois Quadrados Lado a Lado) -->
+    <!-- 2. Grid Analítico Inferior -->
     <div id="bottom-analytics-grid">
-        <!-- Quadrado Esquerdo: Lista de Sensores da Região -->
         <div class="dashboard-box">
             <div class="box-title">
-                <span>Sensores na Região</span>
+                <span>📍 Sensores na Região</span>
                 <span id="contador-regiao" style="font-size: 11px; color: #64748b; font-weight: normal;">60 nós</span>
             </div>
             <div id="lista-sensores-grid"></div>
         </div>
 
-        <!-- Quadrado Direito: Informações do Sensor Selecionado -->
         <div class="dashboard-box">
             <div class="box-title">
-                <span>Telemetria do Sensor Selecionado</span>
+                <span>⚡ Telemetria do Sensor Selecionado</span>
                 <span id="status-tag" style="font-size: 11px; color: #64748b;">Nenhum sensor em foco</span>
             </div>
             <div id="painel-sensor-selecionado">
@@ -307,10 +303,9 @@ def gerar_mapa():
 
     <script>
         window.addEventListener('load', function() {{
-            const map = {map_id};
-            const geoLayer = {layer_id};
+            const map = {m.get_name()};
+            const geoLayer = {geo_layer.get_name()};
 
-            // Garante que o Leaflet recalcule o novo tamanho arredondado
             setTimeout(() => map.invalidateSize(), 200);
             window.addEventListener('resize', () => map.invalidateSize());
 
@@ -363,7 +358,6 @@ def gerar_mapa():
                 map.setView([-23.72, -46.43], 11);
             }}
 
-            // Popula mapeamento de bairros
             geoLayer.eachLayer(function(layer) {{
                 if (layer.feature && layer.feature.properties) {{
                     const p = layer.feature.properties;
@@ -419,7 +413,6 @@ def gerar_mapa():
 
             btnReset.addEventListener('click', limparSelecao);
 
-            // Atualiza Card da Direita (Telemetria Detalhada)
             function atualizarPainelDireito(s) {{
                 if (!s) return;
                 const cor = s.decibeis_dba >= 70 ? '#e74c3c' : (s.decibeis_dba >= 55 ? '#d97706' : '#16a34a');
@@ -457,7 +450,6 @@ def gerar_mapa():
                 `;
             }}
 
-            // Renderiza Lista da Esquerda
             function renderizarListaSensores() {{
                 listaGrid.innerHTML = "";
                 const sensoresFiltrados = telemetriaCache.filter(s => !bairroFiltrado || s.bairro === bairroFiltrado);
@@ -508,17 +500,16 @@ def gerar_mapa():
             function gerarHtmlPopup(s, cor) {{
                 return `
                     <div style="font-family: sans-serif; font-size: 13px; line-height: 1.45;">
-                        <b style="font-size: 14px; color: #1f2328;">Sensor ${{s.sensor_id}}</b><br>
+                        <b style="font-size: 14px; color: #1f2328;">🔊 Sensor ${{s.sensor_id}}</b><br>
                         <b>Bairro:</b> ${{s.bairro}} (${{s.distrito}})<br>
                         <b>Ruído:</b> <span style="color:${{cor}}; font-weight:bold;">${{s.decibeis_dba}} dBA</span> (${{s.status_ruido}})<br>
                         <hr style="margin: 6px 0; border: none; border-top: 1px solid #ddd;">
-                        <b>Potência:</b> ${{s.eletrica.potencia_w}} W (${{s.eletrica.tensao_v}} V)<br>
+                        <b>⚡ Potência:</b> ${{s.eletrica.potencia_w}} W (${{s.eletrica.tensao_v}} V)<br>
                         <b>Consumo:</b> ${{s.eletrica.consumo_acumulado_kwh.toFixed(4)}} kWh
                     </div>
                 `;
             }}
 
-            // Polling a cada 1 segundo
             async function atualizarTelemetria() {{
                 try {{
                     const response = await fetch('dados_sensores.json?t=' + Date.now());
@@ -553,7 +544,6 @@ def gerar_mapa():
                             sensorMarkers[s.sensor_id] = marker;
                         }}
 
-                        // Atualiza linha na lista da esquerda
                         const itemDom = document.getElementById('grid-item-' + s.sensor_id);
                         if (itemDom) {{
                             itemDom.style.borderLeftColor = cor;
@@ -561,7 +551,6 @@ def gerar_mapa():
                             if (badge) {{ badge.innerText = s.decibeis_dba + ' dB'; badge.style.background = cor; }}
                         }}
 
-                        // Mantém o painel da direita atualizado em tempo real se for o sensor em foco
                         if (sensorSelecionadoId === s.sensor_id) {{
                             atualizarPainelDireito(s);
                         }}
