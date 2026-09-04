@@ -1,0 +1,9 @@
+services:
+  app-sensor:
+    build: .
+    container_name: app-sensor
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app
+      
