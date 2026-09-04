@@ -1,1 +1,16 @@
-MVP Mapeamento NoiseSensor/exemplo.py
+venv/
+.venv/
+env/
+
+__pycache__/
+app/__pycache__/
+*.py[cod]
+
+app/dados_sensores.json
+app/historico_sensores.json
+app/mapa_santo_andre.html
+
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -6,7 +6,7 @@ PASTA_RAIZ = os.path.dirname(os.path.abspath(__file__))
 CAMINHO_GEOJSON = os.path.join(PASTA_RAIZ, "santo_andre_dashboard.geojson")
 ARQUIVO_JSON = os.path.join(PASTA_RAIZ, "dados_sensores.json")
 ARQUIVO_HISTORICO = os.path.join(PASTA_RAIZ, "historico_sensores.json")
-ARQUIVO_HTML = os.path.join(PASTA_RAIZ, "mapa_santo_andre.html")
+ARQUIVO_HTML = os.path.join(PASTA_RAIZ, "index.html")
 
 # Servidor Local
 PORTA = 8000
